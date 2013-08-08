@@ -153,11 +153,11 @@ func (client *Client) getTtySize() (h int, w int) {
 		return 0, 0
 	}
 	ws, err := term.GetWinsize(client.terminalFd)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "siphon: error getting terminal size: %s\n", err)
-		if ws == nil {
-			return 0, 0
-		}
+	if err.(syscall.Errno) != 0 {
+		panic(fmt.Errorf("siphon: client error getting terminal size: %s\n", err))
+	}
+	if ws == nil {
+		return 0, 0
 	}
 	return int(ws.Height), int(ws.Width)
 }

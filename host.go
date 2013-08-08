@@ -151,9 +151,9 @@ func (host *Host) StdoutPipe() io.ReadCloser {
 }
 
 func (host *Host) Resize(h int, w int) {
-	if err := term.SetWinsize(host.pty.Fd(), &term.Winsize{Height: uint16(h), Width: uint16(w)}); err != nil {
-		fmt.Fprintf(os.Stderr, "siphon: host error setting terminal size: %s\n", err)
-		//panic(err)
+	err := term.SetWinsize(host.pty.Fd(), &term.Winsize{Height: uint16(h), Width: uint16(w)})
+	if err.(syscall.Errno) != 0 {
+		panic(fmt.Errorf("siphon: host error setting terminal size: %s\n", err))
 	}
 }
 
