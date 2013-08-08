@@ -111,6 +111,11 @@ func (client *Client) initialRead() {
 	//TODO read intial handshake, current terminal size, etc.
 }
 
+func (client *Client) Stdin() io.Writer {
+	client.Connect()
+	return client.stdin
+}
+
 func (client *Client) Stdout() io.Reader {
 	client.Connect()
 	return client.stdout
