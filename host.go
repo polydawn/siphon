@@ -18,6 +18,7 @@ func NewHost(cmd *exec.Cmd, siphon Addr) (host Host) {
 	host.siphon = siphon
 	host.cmd = cmd
 	host.stdout = NewWriteBroadcaster()
+	host.stdin, host.stdinPipe = io.Pipe()
 	return
 }
 
@@ -141,7 +142,6 @@ func (host *Host) Start() {
 	}()
 
 	// copy stdin from our pipe to the pty
-	host.stdin, host.stdinPipe = io.Pipe()
 	host.cmd.Stdin = ptySlave
 	host.cmd.SysProcAttr = &syscall.SysProcAttr{Setctty: true, Setsid: true}
 	go func() {
