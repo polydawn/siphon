@@ -42,69 +42,86 @@ func (host *Host) Serve() {
 	}
 	host.listener = listener
 	go func() {
-		conn, err := host.listener.Accept();
-		if err != nil {
-			panic(err)
-		}
-
-		defer conn.Close()
-		var track sync.WaitGroup
-
-		// recieve client input and resize requests
-		track.Add(1)
-		go func() {
-			dec := json.NewDecoder(conn)
-			in := host.StdinPipe()
-			for {
-				var m Message
-				if err := dec.Decode(&m); err != nil {	//FIXME: this will happily hang out long after cmd has exited if the client fails to close.
+		for host.listener != nil {
+			conn, err := host.listener.Accept();
+			// if err.Err == net.errClosing {
+			// 	break
+			// } // I can't do this because net.errClosing isn't visible to me.  Yay for go's whimsically probably-weakly typed errors.
+			if err != nil {
+				// Also I can't check if host.listener is closed because there's no such predicate.  Good good.  Not that that wouldn't be asking for a race condition anyway.
+				if err.(*net.OpError).Err.Error() == "use of closed network connection" {
+					// doing this strcmp makes me feel absolutely awful, but a closed socket is normal shutdown and not panicworthy in the slightest, and I can't for the life of me find any saner way to distinguish that.
 					break
 				}
-				if m.Content != nil {
-					if _, err := in.Write(m.Content); err != nil {
-						panic(err)
-					}
-				} else if m.TtyHeight != 0 && m.TtyWidth != 0 {
-					host.Resize(m.TtyHeight, m.TtyWidth)
-					//TODO: conn.Write(json.Marshal(Message{TtyHeight:m.TtyHeight, ...}))
-				}
+				panic(err)
 			}
-			track.Done()
-		}()
 
-		// send pty output and size changes
-		track.Add(1)
-		go func() {
-			enc := json.NewEncoder(conn)
-			out := host.StdoutPipe()
-			buf := make([]byte, 32*1024)
-			for {
-				nr, err := out.Read(buf)
-				if nr > 0 {
-					m := Message{Content:buf[0:nr]}
-					if err := enc.Encode(&m); err != nil {
-						break
-					}
-				}
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
+			go host.handleRemoteClient(conn)
+		}
+	}()
+}
+
+func (host *Host) handleRemoteClient(conn net.Conn) {
+	defer conn.Close()
+	var track sync.WaitGroup
+
+	// recieve client input and resize requests
+	track.Add(1)
+	go func() {
+		dec := json.NewDecoder(conn)
+		in := host.StdinPipe()
+		for {
+			var m Message
+			if err := dec.Decode(&m); err != nil {	//FIXME: this will happily hang out long after cmd has exited if the client fails to close.
+				break
+			}
+			if m.Content != nil {
+				if _, err := in.Write(m.Content); err != nil {
 					panic(err)
 				}
+			} else if m.TtyHeight != 0 && m.TtyWidth != 0 {
+				host.Resize(m.TtyHeight, m.TtyWidth)
+				//TODO: conn.Write(json.Marshal(Message{TtyHeight:m.TtyHeight, ...}))
 			}
-			conn.Close()
-			track.Done()
-		}()
-
-		track.Wait()
+		}
+		track.Done()
 	}()
+
+	// send pty output and size changes
+	track.Add(1)
+	go func() {
+		enc := json.NewEncoder(conn)
+		out := host.StdoutPipe()
+		buf := make([]byte, 32*1024)
+		for {
+			nr, err := out.Read(buf)
+			if nr > 0 {
+				m := Message{Content:buf[0:nr]}
+				if err := enc.Encode(&m); err != nil {
+					break
+				}
+			}
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				panic(err)
+			}
+		}
+		conn.Close()
+		track.Done()
+	}()
+
+	track.Wait()
 }
 
 func (host *Host) UnServe() {
 	switch x := host.listener.(type) {
-	case nil: return
-	default: x.Close()
+	case nil:
+		return
+	default:
+		x.Close()
+		host.listener = nil
 	}
 }
 
