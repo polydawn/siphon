@@ -56,7 +56,7 @@ func (host *Host) Serve() {
 				}
 				panic(err)
 			}
-
+			fmt.Fprintf(log.host, "accepted new client connection\n")
 			go host.handleRemoteClient(conn)
 		}
 	}()
