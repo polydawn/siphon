@@ -3,8 +3,10 @@ package siphon
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	trainwreck "log"
+	"strings"
 )
 
 func NewAddr(label string, proto string, addr string) (siphon Addr) {
@@ -72,10 +74,23 @@ type logTargets struct {
 	daemon io.Writer
 }
 
-var log = &logTargets{
-	host:   &logWriter{prefix: "siphon: host: ",   embarassing: trainwreck.New(os.Stderr, "", trainwreck.Lmicroseconds)},
-	client: &logWriter{prefix: "siphon: client: ", embarassing: trainwreck.New(os.Stderr, "", trainwreck.Lmicroseconds)},
-	daemon: &logWriter{prefix: "siphon: daemon: ", embarassing: trainwreck.New(os.Stderr, "", trainwreck.Lmicroseconds)},
+var log = logTargets{}
+
+func init() {
+	enabled := make(map[string]bool)
+	for _, v := range strings.Split(os.Getenv("DEBUG"), ",") {
+	    enabled[v] = true
+	}
+
+	// the sheer verbosity of this without ternary operators makes me feel
+	//  like i'm writing java but without all the *joy of terseness* that I would get from *java*.
+	var tmp io.Writer
+	if enabled["host"] || enabled["*"] { tmp = os.Stderr } else { tmp = ioutil.Discard }
+	log.host   = &logWriter{prefix: "siphon: host: ",   embarassing: trainwreck.New(tmp, "", trainwreck.Lmicroseconds)}
+	if enabled["client"] || enabled["*"] { tmp = os.Stderr } else { tmp = ioutil.Discard }
+	log.client = &logWriter{prefix: "siphon: client: ", embarassing: trainwreck.New(tmp, "", trainwreck.Lmicroseconds)}
+	if enabled["daemon"] || enabled["*"] { tmp = os.Stderr } else { tmp = ioutil.Discard }
+	log.daemon = &logWriter{prefix: "siphon: daemon: ", embarassing: trainwreck.New(tmp, "", trainwreck.Lmicroseconds)}
 }
 
 type logWriter struct {
