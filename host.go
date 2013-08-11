@@ -37,6 +37,7 @@ func (host *Host) Serve() {
 	if host.siphon.proto == "internal" {
 		return
 	}
+	fmt.Fprintf(log.host, "preparing to accept client connections\r\n")
 	listener, err := net.Listen(host.siphon.proto, host.siphon.addr)
 	if err != nil {
 		panic(err)
@@ -56,7 +57,7 @@ func (host *Host) Serve() {
 				}
 				panic(err)
 			}
-			fmt.Fprintf(log.host, "accepted new client connection\n")
+			fmt.Fprintf(log.host, "accepted new client connection %p\r\n", conn)
 			go host.handleRemoteClient(conn)
 		}
 	}()
@@ -85,6 +86,7 @@ func (host *Host) handleRemoteClient(conn net.Conn) {
 				//TODO: conn.Write(json.Marshal(Message{TtyHeight:m.TtyHeight, ...}))
 			}
 		}
+		fmt.Fprintf(log.host, "client %p closed client input\r\n", conn)
 		track.Done()
 	}()
 
@@ -109,6 +111,7 @@ func (host *Host) handleRemoteClient(conn net.Conn) {
 				panic(err)
 			}
 		}
+		fmt.Fprintf(log.host, "client %p output closed\r\n", conn)
 		conn.Close()
 		track.Done()
 	}()
@@ -121,6 +124,7 @@ func (host *Host) UnServe() {
 	case nil:
 		return
 	default:
+		fmt.Fprintf(log.host, "halting accept of new client connections\r\n")
 		x.Close()
 		host.listener = nil
 	}
@@ -150,9 +154,20 @@ func (host *Host) Start() {
 	}()
 
 	// rets roll
+	fmt.Fprintf(log.host, "launching hosted process...\r\n")
 	if err := host.cmd.Start(); err != nil {
 		panic(err)
 	}
+	go func() {
+		exitCode := -1
+		err := host.cmd.Wait()
+		if exitError, ok := err.(*exec.ExitError); ok {
+			if waitStatus, ok := exitError.Sys().(syscall.WaitStatus); ok {
+				exitCode = waitStatus.ExitStatus()
+			}
+		}
+		fmt.Fprintf(log.host, "hosted process exited %d\r\n", exitCode)
+	}()
 	ptySlave.Close()
 }
 
@@ -168,6 +183,7 @@ func (host *Host) StdoutPipe() io.ReadCloser {
 }
 
 func (host *Host) Resize(h int, w int) {
+	fmt.Fprintf(log.host, "resizing pty to h=%d w=%d\r\n", h, w)
 	err := term.SetWinsize(host.pty.Fd(), &term.Winsize{Height: uint16(h), Width: uint16(w)})
 	if err.(syscall.Errno) != 0 {
 		panic(fmt.Errorf("siphon: host error setting terminal size: %s\n", err))

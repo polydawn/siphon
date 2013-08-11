@@ -100,6 +100,7 @@ func (client *Client) Connect() {
 }
 
 func (client *Client) dial() {
+	fmt.Fprintf(log.client, "dialing host\r\n")
 	conn, err := net.Dial(client.siphon.proto, client.siphon.addr)
 	if err != nil {
 		panic(err)
@@ -128,6 +129,8 @@ func (client *Client) Attach() {
 		panic(fmt.Errorf("siphon: cannot attach, no tty"))
 	}
 
+	fmt.Fprintf(log.client, "attaching to tty\r\n")
+
 	rawOldState, err := term.SetRawTerminal(client.terminalFd)
 	if err != nil {
 		panic(err)
@@ -142,12 +145,14 @@ func (client *Client) Attach() {
 	go func() {
 		defer track.Done()
 		io.Copy(os.Stdout, client.stdout)
+		fmt.Fprintf(log.client, "client stdout closed\r\n")
 	}()
 
 	track.Add(1)
 	go func() {
 		defer track.Done()
 		io.Copy(client.stdin, os.Stdin)
+		fmt.Fprintf(log.client, "client stdin closed\r\n")
 	}()
 
 	track.Wait()
@@ -176,6 +181,7 @@ func (client *Client) sendTtyResize() {
 		return
 	}
 
+	fmt.Fprintf(log.client, "client sending resize request to h=%d w=%d\r\n", height, width)
 	m, _ := json.Marshal(Message{TtyHeight: height, TtyWidth: width})
 	client.conn.Write(m)
 }
