@@ -19,6 +19,7 @@ func NewHost(cmd *exec.Cmd, siphon Addr) (host Host) {
 	host.cmd = cmd
 	host.stdout = NewWriteBroadcaster()
 	host.stdin, host.stdinPipe = io.Pipe()
+	host.exitCh = make(chan bool)
 	return
 }
 
@@ -29,6 +30,8 @@ type Host struct {
 	stdin     io.ReadCloser
 	stdinPipe io.WriteCloser
 	pty       *os.File
+	exitCh    chan bool
+	exitCode  int
 
 	listener  net.Listener
 }
@@ -159,16 +162,24 @@ func (host *Host) Start() {
 		panic(err)
 	}
 	go func() {
-		exitCode := -1
 		err := host.cmd.Wait()
 		if exitError, ok := err.(*exec.ExitError); ok {
 			if waitStatus, ok := exitError.Sys().(syscall.WaitStatus); ok {
-				exitCode = waitStatus.ExitStatus()
-			}
-		}
+				host.exitCode = waitStatus.ExitStatus()
+			} else { panic(exitError); }
+		}// else { panic(err); }
+		close(host.exitCh)
+	}()
+	go func() {
+		exitCode := host.Wait()
 		fmt.Fprintf(log.host, "hosted process exited %d\r\n", exitCode)
 	}()
 	ptySlave.Close()
+}
+
+func (host *Host) Wait() int {
+	<- host.exitCh
+	return host.exitCode
 }
 
 func (host *Host) StdinPipe() io.WriteCloser {
