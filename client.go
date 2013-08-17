@@ -21,17 +21,24 @@ func NewClient(siphon Addr) (client Client) {
 type Client struct {
 	siphon     Addr
 
-	in         io.ReadCloser
-	isTerminal bool
-	terminalFd uintptr
-
 	conn       net.Conn //TODO: try to replace this with just normal io interfaces...?  want to support single-process mode.
 
+	/** Write characters to this and they will be serialized in Siphon's wire format and shipped to the host.  Must be Connect()'d. */
 	stdin      io.WriteCloser
+	/** Character output from the host has been deserialized and buffered here for your reading.  Must be Connect()'d. */
 	stdout     io.ReadCloser
 
+	/** Tty size as known to the host. */
 	ttyHeight  int
+	/** Tty size as known to the host. */
 	ttyWidth   int
+
+	/** Unused unless Attach() called.  Typically should be os.Stdin. */
+	in         io.ReadCloser
+	/** Unused unless Attach() called. */
+	isTerminal bool
+	/** Unused unless Attach() called. */
+	terminalFd uintptr
 }
 
 func (client *Client) Connect() {
