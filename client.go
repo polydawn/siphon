@@ -15,13 +15,6 @@ import (
 func NewClient(siphon Addr) (client Client) {
 	client = Client{}
 	client.siphon = siphon
-
-	client.in = os.Stdin
-	if file, ok := client.in.(*os.File); ok {
-		client.terminalFd = file.Fd()
-		client.isTerminal = term.IsTerminal(client.terminalFd)
-	}
-
 	return
 }
 
@@ -122,8 +115,14 @@ func (client *Client) Stdout() io.Reader {
 	return client.stdout
 }
 
-func (client *Client) Attach() {
+func (client *Client) Attach(in io.ReadCloser, out io.WriteCloser) {
 	client.Connect()
+
+	client.in = in
+	if file, ok := client.in.(*os.File); ok {
+		client.terminalFd = file.Fd()
+		client.isTerminal = term.IsTerminal(client.terminalFd)
+	}
 
 	if !client.isTerminal {
 		panic(fmt.Errorf("siphon: cannot attach, no tty"))
@@ -144,15 +143,15 @@ func (client *Client) Attach() {
 	track.Add(1)
 	go func() {
 		defer track.Done()
-		io.Copy(os.Stdout, client.stdout)
-		fmt.Fprintf(log.client, "client stdout closed\r\n")
+		io.Copy(out, client.stdout)
+		fmt.Fprintf(log.client, "client output closed\r\n")
 	}()
 
 	track.Add(1)
 	go func() {
 		defer track.Done()
-		io.Copy(client.stdin, os.Stdin)
-		fmt.Fprintf(log.client, "client stdin closed\r\n")
+		io.Copy(client.stdin, in)
+		fmt.Fprintf(log.client, "client input closed\r\n")
 	}()
 
 	track.Wait()
