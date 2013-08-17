@@ -154,9 +154,8 @@ func (client *Client) Attach(in io.ReadCloser, out io.WriteCloser) {
 		fmt.Fprintf(log.client, "client output closed\r\n")
 	}()
 
-	track.Add(1)
+	// track.Add(1) // io.Copy will block indefinitely on 'in' regardless of if client.stdin has been closed, so we can't actually wait for this.
 	go func() {
-		defer track.Done()
 		io.Copy(client.stdin, in)
 		fmt.Fprintf(log.client, "client input closed\r\n")
 	}()
