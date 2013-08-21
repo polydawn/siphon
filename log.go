@@ -1,43 +1,12 @@
 package siphon
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	trainwreck "log"
 	"strings"
 )
-
-func NewAddr(label string, proto string, addr string) (siphon Addr) {
-	siphon = Addr{}
-	siphon.label = label
-	switch proto {
-	case "unix":
-	case "tcp":
-	default: panic(fmt.Errorf("Unsupported protocol \"%s\"", proto))
-	}
-	siphon.proto = proto
-	siphon.addr = addr
-	return
-}
-
-func NewInternalAddr() (siphon Addr) {
-	siphon = Addr{}
-	siphon.label = "internal"
-	siphon.proto = "internal"
-	return
-}
-
-type Addr struct {
-	label     string
-	proto     string
-	addr      string
-}
-
-func (this *Addr) Label() string {
-	return this.label
-}
 
 /*
 
@@ -102,5 +71,3 @@ func (log *logWriter) Write(p []byte) (n int, err error) {
 	log.embarassing.Printf("%s%s", log.prefix, p)
 	return len(p), nil
 }
-
-
