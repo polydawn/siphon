@@ -3,6 +3,7 @@ package siphon
 import (
 	"encoding/json"
 	"net"
+	"sync"
 )
 
 func NewNetConn(netconn net.Conn) *Conn {
@@ -16,16 +17,22 @@ func NewNetConn(netconn net.Conn) *Conn {
 }
 
 type Conn struct {
-	decoder *json.Decoder
-	encoder *json.Encoder
-	closerFn func()error
+	decoder     *json.Decoder
+	decoderLock sync.Mutex
+	encoder     *json.Encoder
+	encoderLock sync.Mutex
+	closerFn    func()error
 }
 
 func (conn *Conn) Decode(v interface{}) error {
+	conn.decoderLock.Lock()
+	defer conn.decoderLock.Unlock()
 	return conn.decoder.Decode(v)
 }
 
 func (conn *Conn) Encode(v interface{}) error {
+	conn.encoderLock.Lock()
+	defer conn.encoderLock.Unlock()
 	return conn.encoder.Encode(v)
 }
 
