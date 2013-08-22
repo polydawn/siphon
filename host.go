@@ -69,6 +69,28 @@ func (host *Host) handleRemoteClient(conn *Conn) {
 	defer conn.Close()
 	var track sync.WaitGroup
 
+	// do startup handshake
+	var hai Hello
+	if err := conn.Decode(&hai); err != nil {
+		fmt.Fprintf(log.host, "%s, dropping client %s", err, conn.Label())
+		return
+	}
+	if hai.Siphon != "siphon" {
+		fmt.Fprintf(log.host, "Encountered a non-siphon protocol, dropping client %s", conn.Label())
+		return
+	}
+	if hai.Hello != "client" {
+		fmt.Fprintf(log.host, "Unexpected hello from not a client protocol, dropping client %s", conn.Label())
+		return
+	}
+	if err := conn.Encode(HelloAck{
+		Siphon: "siphon",
+		Hello: "server",
+	}); err != nil {
+		fmt.Fprintf(log.host, "%s, dropping client %s", err, conn.Label())
+		return
+	}
+
 	// recieve client input and resize requests
 	track.Add(1)
 	go func() {

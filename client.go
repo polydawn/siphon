@@ -11,9 +11,54 @@ import (
 	"syscall"
 )
 
-func NewClient(siphon Addr) (client Client) {
-	client = Client{}
+func Connect(addr Addr) *Client {
+	conn := connectDial(addr)
+	return NewClient(addr, conn)
+}
+
+func connectDial(addr Addr) *Conn {
+	fmt.Fprintf(log.client, "dialing %s\r\n", addr.Label())
+	conn, err := net.Dial(addr.proto, addr.addr)
+	if err != nil {
+		panic(err)
+	}
+	return connectHandshake(NewNetConn(conn))
+}
+
+func connectHandshake(conn *Conn) *Conn {
+	if err := conn.Encode(Hello{
+		Siphon: "siphon",
+		Hello: "client",
+	}); err != nil {
+		panic(err)
+	}
+	var ack HelloAck
+	if err := conn.Decode(&ack); err != nil {
+		panic(err)
+	}
+	if ack.Siphon != "siphon" {
+		panic(fmt.Errorf("Encountered a non-siphon protocol on %s, aborting", conn.Label()))
+	}
+
+	switch ack.Hello {
+		case "server":
+			// excellent.  we can make a client around this.
+			return conn
+		case "daemon":
+			// we expect a redirect message from the daemon.
+			var redirect Redirect
+			if err := conn.Decode(&redirect); err != nil {
+				panic(err)
+			}
+			return connectDial(redirect.Addr)
+		default: panic(fmt.Errorf("Unexpected HelloAck! \"%s\"", ack.Hello))
+	}
+}
+
+func NewClient(siphon Addr, conn *Conn) (client *Client) {
+	client = &Client{}
 	client.siphon = siphon
+	client.conn = conn
 	return
 }
 
@@ -41,11 +86,9 @@ type Client struct {
 }
 
 func (client *Client) Connect() {
-	if client.conn != nil {
+	if client.stdout != nil {
 		return
 	}
-	client.dial()
-	client.initialRead()
 
 	stdout, stdoutPipe := io.Pipe()
 	client.stdout = stdout
@@ -94,19 +137,6 @@ func (client *Client) Connect() {
 			}
 		}
 	}()
-}
-
-func (client *Client) dial() {
-	fmt.Fprintf(log.client, "dialing host\r\n")
-	conn, err := net.Dial(client.siphon.proto, client.siphon.addr)
-	if err != nil {
-		panic(err)
-	}
-	client.conn = NewNetConn(conn)
-}
-
-func (client *Client) initialRead() {
-	//TODO read intial handshake, current terminal size, etc.
 }
 
 func (client *Client) Stdin() io.Writer {
