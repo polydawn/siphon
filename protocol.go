@@ -2,12 +2,14 @@ package siphon
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"sync"
 )
 
 func NewNetConn(netconn net.Conn) *Conn {
 	return &Conn{
+		label: fmt.Sprintf("%p", netconn),
 		decoder: json.NewDecoder(netconn),
 		encoder: json.NewEncoder(netconn),
 		closerFn: func() error {
@@ -17,11 +19,16 @@ func NewNetConn(netconn net.Conn) *Conn {
 }
 
 type Conn struct {
+	label       string
 	decoder     *json.Decoder
 	decoderLock sync.Mutex
 	encoder     *json.Encoder
 	encoderLock sync.Mutex
 	closerFn    func()error
+}
+
+func (conn *Conn) Label() string {
+	return conn.label
 }
 
 func (conn *Conn) Decode(v interface{}) error {
