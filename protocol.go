@@ -56,3 +56,30 @@ type Message struct {
 	//   So i.e. color codes in effect mid-client-attach give the client the right color,
 	//   and attaching to vim starts your cursor in the right place?
 }
+
+/**
+ * First message sent after dialing a connection.
+ */
+type Hello struct {
+	Siphon string
+	/** Only the value "client" is currently expected. */
+	Hello string
+}
+
+type HelloAck struct {
+	Siphon string
+	/**
+	 * Values may be "server" or "daemon", which the client will use to
+	 * determine what kind of messages it expects to come next.
+	 */
+	Hello string
+}
+
+/**
+ * Message passed from daemon to client telling the client where its new host is.
+ * This message immediately follows a HelloAck that annouces the daemon as a daemon,
+ * and the connection can be expected to shutdown after this message.
+ */
+type Redirect struct {
+	Addr Addr
+}
