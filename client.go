@@ -2,7 +2,6 @@ package siphon
 
 import (
 	"github.com/dotcloud/docker/term"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -21,7 +20,7 @@ func NewClient(siphon Addr) (client Client) {
 type Client struct {
 	siphon     Addr
 
-	conn       net.Conn //TODO: try to replace this with just normal io interfaces...?  want to support single-process mode.
+	conn       *Conn
 
 	/** Write characters to this and they will be serialized in Siphon's wire format and shipped to the host.  Must be Connect()'d. */
 	stdin      io.WriteCloser
@@ -51,11 +50,10 @@ func (client *Client) Connect() {
 	stdout, stdoutPipe := io.Pipe()
 	client.stdout = stdout
 	go func() {
-		dec := json.NewDecoder(client.conn)
 		defer client.conn.Close()
 		for {
 			var m Message
-			if err := dec.Decode(&m); err != nil {
+			if err := client.conn.Decode(&m); err != nil {
 				stdoutPipe.Close()
 				if err == io.EOF {
 					break
@@ -77,7 +75,6 @@ func (client *Client) Connect() {
 	stdinPipe, stdin := io.Pipe()
 	client.stdin = stdin
 	go func() {
-		enc := json.NewEncoder(client.conn)
 		defer stdinPipe.Close()
 		defer client.conn.Close()
 		buf := make([]byte, 32*1024)
@@ -85,7 +82,7 @@ func (client *Client) Connect() {
 			nr, err := stdinPipe.Read(buf)
 			if nr > 0 {
 				m := Message{Content:buf[0:nr]}
-				if err := enc.Encode(&m); err != nil {
+				if err := client.conn.Encode(&m); err != nil {
 					break
 				}
 			}
@@ -105,7 +102,7 @@ func (client *Client) dial() {
 	if err != nil {
 		panic(err)
 	}
-	client.conn = conn
+	client.conn = NewNetConn(conn)
 }
 
 func (client *Client) initialRead() {
@@ -187,8 +184,7 @@ func (client *Client) sendTtyResize() {
 	}
 
 	fmt.Fprintf(log.client, "client sending resize request to h=%d w=%d\r\n", height, width)
-	m, _ := json.Marshal(Message{TtyHeight: height, TtyWidth: width})
-	client.conn.Write(m)
+	client.conn.Encode(Message{TtyHeight: height, TtyWidth: width})
 }
 
 func (client *Client) monitorTtySize() {
