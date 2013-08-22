@@ -3,7 +3,6 @@ package siphon
 import (
 	"github.com/dotcloud/docker/term"
 	"github.com/kr/pty"
-	"encoding/json"
 	"io"
 	"fmt"
 	"net"
@@ -61,23 +60,22 @@ func (host *Host) Serve() {
 				panic(err)
 			}
 			fmt.Fprintf(log.host, "accepted new client connection %p\r\n", conn)
-			go host.handleRemoteClient(conn)
+			go host.handleRemoteClient(NewNetConn(conn))
 		}
 	}()
 }
 
-func (host *Host) handleRemoteClient(conn net.Conn) {
+func (host *Host) handleRemoteClient(conn *Conn) {
 	defer conn.Close()
 	var track sync.WaitGroup
 
 	// recieve client input and resize requests
 	track.Add(1)
 	go func() {
-		dec := json.NewDecoder(conn)
 		in := host.StdinPipe()
 		for {
 			var m Message
-			if err := dec.Decode(&m); err != nil {	//FIXME: this will happily hang out long after cmd has exited if the client fails to close.
+			if err := conn.Decode(&m); err != nil {	//FIXME: this will happily hang out long after cmd has exited if the client fails to close.
 				break
 			}
 			if m.Content != nil {
@@ -89,21 +87,20 @@ func (host *Host) handleRemoteClient(conn net.Conn) {
 				//TODO: conn.Write(json.Marshal(Message{TtyHeight:m.TtyHeight, ...}))
 			}
 		}
-		fmt.Fprintf(log.host, "client %p closed client input\r\n", conn)
+		fmt.Fprintf(log.host, "client %s closed client input\r\n", conn.Label())
 		track.Done()
 	}()
 
 	// send pty output and size changes
 	track.Add(1)
 	go func() {
-		enc := json.NewEncoder(conn)
 		out := host.StdoutPipe()
 		buf := make([]byte, 32*1024)
 		for {
 			nr, err := out.Read(buf)
 			if nr > 0 {
 				m := Message{Content:buf[0:nr]}
-				if err := enc.Encode(&m); err != nil {
+				if err := conn.Encode(&m); err != nil {
 					break
 				}
 			}
@@ -114,7 +111,7 @@ func (host *Host) handleRemoteClient(conn net.Conn) {
 				panic(err)
 			}
 		}
-		fmt.Fprintf(log.host, "client %p output closed\r\n", conn)
+		fmt.Fprintf(log.host, "client %s output closed\r\n", conn.Label())
 		conn.Close()
 		track.Done()
 	}()
