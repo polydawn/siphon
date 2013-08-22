@@ -1,5 +1,38 @@
 package siphon
 
+import (
+	"encoding/json"
+	"net"
+)
+
+func NewNetConn(netconn net.Conn) *Conn {
+	return &Conn{
+		decoder: json.NewDecoder(netconn),
+		encoder: json.NewEncoder(netconn),
+		closerFn: func() error {
+			return netconn.Close()
+		},
+	}
+}
+
+type Conn struct {
+	decoder *json.Decoder
+	encoder *json.Encoder
+	closerFn func()error
+}
+
+func (conn *Conn) Decode(v interface{}) error {
+	return conn.decoder.Decode(v)
+}
+
+func (conn *Conn) Encode(v interface{}) error {
+	return conn.encoder.Encode(v)
+}
+
+func (conn *Conn) Close() error {
+	return conn.closerFn()
+}
+
 type Message struct {
 	Content     []byte    `json:",omitempty"`
 	TtyHeight   int       `json:",omitempty"`
