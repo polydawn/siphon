@@ -17,8 +17,8 @@ func Connect(addr Addr) *Client {
 }
 
 func connectDial(addr Addr) *Conn {
-	fmt.Fprintf(log.client, "dialing %s\r\n", addr.Label())
-	conn, err := net.Dial(addr.proto, addr.addr)
+	fmt.Fprintf(log.client, "dialing %s\r\n", addr.Label)
+	conn, err := net.Dial(addr.Proto, addr.Addr)
 	if err != nil {
 		panic(err)
 	}
@@ -37,7 +37,7 @@ func connectHandshake(conn *Conn) *Conn {
 		panic(err)
 	}
 	if ack.Siphon != "siphon" {
-		panic(fmt.Errorf("Encountered a non-siphon protocol on %s, aborting", conn.Label()))
+		panic(fmt.Errorf("Encountered a non-siphon.Protocol on %s, aborting", conn.Label()))
 	}
 
 	switch ack.Hello {

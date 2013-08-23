@@ -36,11 +36,11 @@ type Host struct {
 }
 
 func (host *Host) Serve() error {
-	if host.siphon.proto == "internal" {
+	if host.siphon.Proto == "internal" {
 		return nil
 	}
 	fmt.Fprintf(log.host, "preparing to accept client connections\r\n")
-	listener, err := net.Listen(host.siphon.proto, host.siphon.addr)
+	listener, err := net.Listen(host.siphon.Proto, host.siphon.Addr)
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func (host *Host) handleRemoteClient(conn *Conn) {
 		return
 	}
 	if hai.Siphon != "siphon" {
-		fmt.Fprintf(log.host, "Encountered a non-siphon protocol, dropping client %s", conn.Label())
+		fmt.Fprintf(log.host, "Encountered a non-siphon.Protocol, dropping client %s", conn.Label())
 		return
 	}
 	if hai.Hello != "client" {

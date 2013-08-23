@@ -7,30 +7,26 @@ import (
 
 func NewAddr(label string, proto string, addr string) (siphon Addr) {
 	siphon = Addr{}
-	siphon.label = label
+	siphon.Label = label
 	switch proto {
 	case "unix":
 	case "tcp":
 	default: panic(fmt.Errorf("Unsupported protocol \"%s\"", proto))
 	}
-	siphon.proto = proto
-	siphon.addr = addr
+	siphon.Proto = proto
+	siphon.Addr = addr
 	return
 }
 
 func NewInternalAddr() (siphon Addr) {
 	siphon = Addr{}
-	siphon.label = "internal"
-	siphon.proto = "internal"
+	siphon.Label = "internal"
+	siphon.Proto = "internal"
 	return
 }
 
 type Addr struct {
-	label     string
-	proto     string
-	addr      string
-}
-
-func (this *Addr) Label() string {
-	return this.label
+	Label     string
+	Proto     string
+	Addr      string
 }
