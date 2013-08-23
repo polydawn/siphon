@@ -35,14 +35,14 @@ type Host struct {
 	listener  net.Listener
 }
 
-func (host *Host) Serve() {
+func (host *Host) Serve() error {
 	if host.siphon.proto == "internal" {
-		return
+		return nil
 	}
 	fmt.Fprintf(log.host, "preparing to accept client connections\r\n")
 	listener, err := net.Listen(host.siphon.proto, host.siphon.addr)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	host.listener = listener
 	go func() {
@@ -63,6 +63,7 @@ func (host *Host) Serve() {
 			go host.handleRemoteClient(NewNetConn(conn))
 		}
 	}()
+	return nil
 }
 
 func (host *Host) handleRemoteClient(conn *Conn) {
