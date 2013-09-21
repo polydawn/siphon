@@ -13,7 +13,9 @@ import (
 
 func Connect(addr Addr) *Client {
 	conn := connectDial(addr)
-	return NewClient(addr, conn)
+	client := NewClient(addr, conn)
+	client.connect()
+	return client
 }
 
 func connectDial(addr Addr) *Conn {
@@ -85,11 +87,7 @@ type Client struct {
 	terminalFd uintptr
 }
 
-func (client *Client) Connect() {
-	if client.stdout != nil {
-		return
-	}
-
+func (client *Client) connect() {
 	stdout, stdoutPipe := io.Pipe()
 	client.stdout = stdout
 	go func() {
@@ -140,18 +138,14 @@ func (client *Client) Connect() {
 }
 
 func (client *Client) Stdin() io.Writer {
-	client.Connect()
 	return client.stdin
 }
 
 func (client *Client) Stdout() io.Reader {
-	client.Connect()
 	return client.stdout
 }
 
 func (client *Client) Attach(in io.ReadCloser, out io.WriteCloser) {
-	client.Connect()
-
 	client.in = in
 	if file, ok := client.in.(*os.File); ok {
 		client.terminalFd = file.Fd()
